@@ -20,9 +20,9 @@ def removeAndSegmentHTAGS(text,to_leave):
 csv = pd.read_csv("dataset_v2.csv",engine='python')
 text_array = []
 for index, row in csv.iterrows():
-    text = row[2].lower()
+    text = row[10].lower()
     text = nltk.re.sub(r"http\S+", "", text)
-    text = nltk.re.sub(r"@\S+", "", text)
+    text = text.replace("@","")
     text = removeAndSegmentHTAGS(text, [])
     #text = nltk.re.sub(r"covid\S+", "", text)
     text = nltk.re.sub(r"[a-zA-Z0-9]", "", text)
