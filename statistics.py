@@ -13,6 +13,7 @@ if __name__ == '__main__':
             values[int(row[3]) - 1] += 1
 
     fig = plt.figure()
+    plt.title("April")
     categories = ["neutral","optimistic","pessimistic1","pessimistic2"]
     plt.bar(categories, values)
     plt.show()
