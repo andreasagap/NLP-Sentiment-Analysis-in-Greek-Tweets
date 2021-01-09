@@ -109,7 +109,6 @@ model.fit(embedding_input_train, y_train, epochs=10, batch_size=250)
 
 y_pred = model.predict(embedding_input_test)
 
-y_test = enc.inverse_transform(y_test)
 y_pred = enc.inverse_transform(y_pred)
 
 print('LSTM Accuracy model: ', metrics.accuracy_score(y_test, y_pred))
