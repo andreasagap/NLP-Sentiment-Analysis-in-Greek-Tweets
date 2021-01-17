@@ -23,7 +23,8 @@ from tensorflow.python.keras.layers import Flatten
 def preproseccingPhase():
     dataset = pd.read_csv('Datasets/tweets_with_hashtag_content.csv')
 
-    # dataset.loc[dataset['Sentiment'] == 4, 'Sentiment'] = 3 #for 3-class representation
+    dataset.loc[dataset['label'] == 4, 'label'] = 3 #for 3-class representation
+    numClasses = 3
     pos_neg_dataset = dataset[['#pos', '#neg']]
     dataset = dataset.drop(['#pos', '#neg'], axis=1)
 
@@ -165,7 +166,7 @@ def check_overfitting(history):
 
 def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
     batch_size = 6
-    epochs = 30
+    epochs = 10
     opt = keras.optimizers.Adam(0.0001)
     #BUILDING THE MODEL
 
@@ -187,7 +188,7 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
     # model.add(Dense(24, activation='relu'))
     # model.add(Dropout(0.6))
     model.add(Flatten())
-    model.add(Dense(4, activation='softmax'))
+    model.add(Dense(numClasses, activation='softmax'))
 
     model.summary()
 
@@ -222,8 +223,9 @@ def visualizeMLP():
     #ann_viz(model, title="Artificial Neural network - Model Visualization")
 
 def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
-    class_weight = {0: 2.3, 1: 2, 2: 1, 3: 1}
-    # class_weight = {0:1.5, 1:5, 2:1}
+    #class_weight = {0: 2.3, 1: 2, 2: 1, 3: 1} #best results
+    #class_weight = {0:1.5, 1:5, 2:1}
+
     trainable = True
 
     model = Sequential()
@@ -232,23 +234,14 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_
                         weights=[embedding_matrix],
                         input_length=maxWords,
                         trainable=trainable))
-    model.add(Bidirectional(LSTM(10, dropout=0.4, return_sequences=True)))
     model.add((LSTM(20, dropout=0.5)))
-    model.add(Dense(4, activation='softmax'))
+    model.add(Dense(numClasses, activation='softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
     print(embedding_input_train.shape)
     print(y_train.shape)
-    model.fit(embedding_input_train, y_train, epochs=10, batch_size=250)
-    '''
-    feature_extractor = keras.Model(
-        inputs=model.inputs,
-        outputs=model.get_layer(index=-1).output)
-
-    features_train = feature_extractor(embedding_input_train)
-    features_test = feature_extractor(embedding_input_test)
-    '''
+    model.fit(embedding_input_train, y_train, epochs=10, batch_size=6, validation_data=(embedding_input_test, y_test))
 
     y_pred = model.predict(embedding_input_test)
     return y_pred
