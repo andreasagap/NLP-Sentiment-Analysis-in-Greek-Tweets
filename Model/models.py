@@ -74,7 +74,6 @@ def max_words_in_a_tweet(tweets):
             max = tweet_len
     return max
 
-
 def tweets_to_indices(tweets, preproc, vocab, maxWords):
     new_tweets = []  # tweets with indices
     for tweet in tweets:
@@ -87,7 +86,6 @@ def tweets_to_indices(tweets, preproc, vocab, maxWords):
                 continue
         new_tweets.append(new)
     return pad_sequences(new_tweets, maxlen=maxWords)
-
 
 def statisticsModel(y_pred_lstm, y_pred_mlp, y_test, enc):
     y_pred_lstm = enc.inverse_transform(y_pred_lstm)
@@ -145,25 +143,6 @@ def statisticsModel(y_pred_lstm, y_pred_mlp, y_test, enc):
 
     print(classification_report(y_test, y_pred_lstm))
 
-
-def check_overfitting(history):
-    plt.plot(history.history['acc'])
-    plt.plot(history.history['val_acc'])
-    plt.title('model accuracy')
-    plt.ylabel('accuracy')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
-    # summarize history for loss
-    plt.plot(history.history['loss'])
-    plt.plot(history.history['val_loss'])
-    plt.title('model loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
-
-
 def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
     batch_size = 6
     epochs = 10
@@ -209,18 +188,6 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
     model.save_weights("modelMLP.h5")
     visualizeMLP()
     return model.predict(embedding_input_test)
-
-def visualizeMLP():
-    #from ann_visualizer.visualize import ann_viz
-    from keras.models import model_from_json
-    import numpy  # fix random seed for reproducibility
-    numpy.random.seed(7)  # load json and create model
-    json_file = open('modelMLP.json', 'r')
-    loaded_model_json = json_file.read()
-    json_file.close()
-    model = model_from_json(loaded_model_json)  # load weights into new model
-    model.load_weights("modelMLP.h5")
-    #ann_viz(model, title="Artificial Neural network - Model Visualization")
 
 def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
     #class_weight = {0: 2.3, 1: 2, 2: 1, 3: 1} #best results
