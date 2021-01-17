@@ -22,7 +22,7 @@ import fasttext as f
 from tensorflow.python.keras.layers import Flatten
 
 def preproseccingPhase():
-    dataset = pd.read_csv('tweets_preprocessed_drop_hashtag_content.csv')
+    dataset = pd.read_csv('tweets_drop_hashtag_content.csv')
 
     # dataset.loc[dataset['Sentiment'] == 4, 'Sentiment'] = 3 #for 3-class representation
 
@@ -41,7 +41,7 @@ def preproseccingPhase():
     # Implement BOG with CountVectorizer and TfidfVectorizer
     cv = CountVectorizer()
 
-    X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet text'], dataset.iloc[:, 1:].values,
+    X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet'], dataset.iloc[:, 1:].values,
                                                         test_size=0.1, random_state=42, shuffle=True)
 
     preproc = cv.build_analyzer()
