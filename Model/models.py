@@ -1,10 +1,12 @@
 from functools import partial
 
+import nltk
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn import metrics
-from sklearn.metrics import precision_score, recall_score, roc_curve, classification_report, roc_auc_score
+from sklearn.metrics import precision_score, recall_score, roc_curve, classification_report, roc_auc_score, \
+    confusion_matrix
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
@@ -51,7 +53,7 @@ def statisticsModel(y_pred, y_test):
 
     print("Precision: " + str(precision_score(y_test, y_pred, average='macro')))
     print("Recall " + str(recall_score(y_test, y_pred, average='macro')))
-
+    print(confusion_matrix(y_test, y_pred))
     print(classification_report(y_test, y_pred))
 
 
@@ -74,8 +76,8 @@ def check_overfitting(history):
 
 
 def MLP(vocab, embedding_dim, embedding_matrix, maxWords):
-    batch_size = 16
-    epochs = 40
+    batch_size = 6
+    epochs = 30
     opt = keras.optimizers.Adam(0.0001)
     #                      BUILDING THE MODEL
 
@@ -89,7 +91,7 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords):
                         input_length=maxWords,
                         trainable=True))
     model.add(Flatten())
-    model.add(Dense(32, activation='relu'))
+    model.add(Dense(32, activation='tanh'))
     model.add(Dropout(0.4))
     model.add(Dense(16, activation='relu'))
     model.add(Dropout(0.1))
@@ -109,14 +111,13 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords):
                         batch_size=batch_size,
                         epochs=epochs,
                         verbose=1,
-                        validation_data=(embedding_input_test, y_test),
-                        class_weight={0: 0.9, 1: 1.1, 2: 1, 3: 0.8})
+                        validation_data=(embedding_input_test, y_test))
 
     # check_overfitting(history)
     return model.predict(embedding_input_test)
 
 
-def LSTM(vocab, embedding_dim, embedding_matrix, maxWords):
+def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords):
     trainable = True
     opt = keras.optimizers.RMSprop()
 
@@ -140,6 +141,45 @@ def LSTM(vocab, embedding_dim, embedding_matrix, maxWords):
 dataset = pd.read_csv('tweets_preprocessed.csv', usecols=[0, 1], names=["tweet", "label"], header=None)
 dataset = dataset[dataset["label"].notna()]
 dataset = dataset[dataset["label"] != 10.0]
+neutral = dataset[dataset["label"] == 1]
+positive = dataset[dataset["label"] == 2]
+angry1 = dataset[dataset["label"] == 3]
+angry2 = dataset[dataset["label"] == 4]
+print('=' * 60)
+txt = neutral.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
+words = nltk.tokenize.word_tokenize(txt)
+word_dist = nltk.FreqDist(words)
+rslt = pd.DataFrame(word_dist.most_common(10),
+                    columns=['Word', 'Frequency'])
+print(rslt)
+print('=' * 60)
+
+
+print('=' * 60)
+txt = positive.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
+words = nltk.tokenize.word_tokenize(txt)
+word_dist = nltk.FreqDist(words)
+rslt = pd.DataFrame(word_dist.most_common(10),
+                    columns=['Word', 'Frequency'])
+print(rslt)
+print('=' * 60)
+
+print('=' * 60)
+txt = angry1.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
+words = nltk.tokenize.word_tokenize(txt)
+word_dist = nltk.FreqDist(words)
+rslt = pd.DataFrame(word_dist.most_common(10),
+                    columns=['Word', 'Frequency'])
+print(rslt)
+print('=' * 60)
+print('=' * 60)
+txt = angry2.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
+words = nltk.tokenize.word_tokenize(txt)
+word_dist = nltk.FreqDist(words)
+rslt = pd.DataFrame(word_dist.most_common(10),
+                    columns=['Word', 'Frequency'])
+print(rslt)
+print('=' * 60)
 dataset['label'].astype('category')
 enc = OneHotEncoder()
 enc_df = pd.DataFrame(enc.fit_transform(dataset[['label']]).toarray())
@@ -180,5 +220,5 @@ feature_shape = embedding_dim
 
 # MODEL declaration
 
-# statisticsModel(LSTM(vocab, embedding_dim, embedding_matrix, maxWords))
+# statisticsModel(LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords))
 statisticsModel(MLP(vocab, embedding_dim, embedding_matrix, maxWords), y_test)

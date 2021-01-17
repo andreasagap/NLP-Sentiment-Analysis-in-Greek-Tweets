@@ -45,14 +45,26 @@ def plotLine(category,title):
             month = dt.strptime(date_str, '%Y-%m-%d').strftime("%B")
             months[month] = [item + 1 if (int(row[2]) - 1) == i else item for i, item in enumerate(months[month])]
 
-    points = []
+    pointsN,pointsO,pointsP1,pointsP2 = [],[],[],[]
     monthx = []
     for key, value in months.items():
         monthx.append(key)
-        points.append(value[category])
+        pointsN.append(value[0])
+        pointsO.append(value[1])
+        pointsP1.append(value[2])
+        pointsP2.append(value[3])
+
+        # pointsN.append(int(value[0] * 100 / sum(value)))
+        # pointsO.append(int(value[1] * 100 / sum(value)))
+        # pointsP1.append(int(value[2] * 100 / sum(value)))
+        # pointsP2.append(int(value[3] * 100 / sum(value)))
     plt.title(title)
-    plt.plot(monthx,points, linestyle='--', marker='o', color='b')
+    plt.plot(monthx,pointsN, linestyle='--', marker='o', color='b',label="Neutral")
+    plt.plot(monthx, pointsO, linestyle='--', marker='o', color='g',label="Optimistic")
+    plt.plot(monthx, pointsP1, linestyle='--', marker='o', color='y',label="Pessimistic1")
+    plt.plot(monthx, pointsP2, linestyle='--', marker='o', color='r',label="Pessimistic2")
+    plt.legend()
     plt.show()
 if __name__ == '__main__':
-    plotBarByMonth()
-    #plotLine(3,"pessimistic2")
+    #plotBarByMonth()
+    plotLine(3,"Sentiments in year")
