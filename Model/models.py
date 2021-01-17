@@ -240,7 +240,7 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_
 
     print(embedding_input_train.shape)
     print(y_train.shape)
-    model.fit(embedding_input_train, y_train, epochs=10, batch_size=250, class_weight=class_weight)
+    model.fit(embedding_input_train, y_train, epochs=10, batch_size=250)
     '''
     feature_extractor = keras.Model(
         inputs=model.inputs,
