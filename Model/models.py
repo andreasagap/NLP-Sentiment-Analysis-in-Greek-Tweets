@@ -1,6 +1,5 @@
 from functools import partial
 
-import nltk
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -22,32 +21,37 @@ import fasttext as f
 from tensorflow.python.keras.layers import Flatten
 
 def preproseccingPhase():
-    dataset = pd.read_csv('tweets_drop_hashtag_content.csv')
+    dataset = pd.read_csv('Datasets/tweets_with_hashtag_content.csv')
 
     # dataset.loc[dataset['Sentiment'] == 4, 'Sentiment'] = 3 #for 3-class representation
+    pos_neg_dataset = dataset[['#pos', '#neg']]
+    dataset = dataset.drop(['#pos', '#neg'], axis=1)
 
-    dataset['Sentiment'].astype('category')
+    dataset['label'].astype('category')
 
     # One hot encoding
     enc = OneHotEncoder(handle_unknown='ignore')
-    enc_df = pd.DataFrame(enc.fit_transform(dataset[['Sentiment']]).toarray())
+    enc_df = pd.DataFrame(enc.fit_transform(dataset[['label']]).toarray())
     dataset = dataset.join(enc_df)
-    dataset = dataset.drop(['Sentiment'], axis=1)
+    dataset = dataset.drop(['label'], axis=1)
 
     # Load fasttext embeddings
-    model = f.load_model('wiki.el.bin')
+    model = f.load_model('Model/wiki.el.bin')
     embedding_dim = 300
 
-    # Implement BOG with CountVectorizer and TfidfVectorizer
-    cv = CountVectorizer()
-
-    X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet'], dataset.iloc[:, 1:].values,
+    X_train, X_test, y_train, y_test = train_test_split(dataset['tweet'], dataset.iloc[:, 1:].values,
                                                         test_size=0.1, random_state=42, shuffle=True)
+    #pos_neg_train = X_train[['#pos', '#neg']]
+    #pos_neg_test = X_test[['#pos', '#neg']]
 
+    # Implement BOG with CountVectorizer
+    cv = CountVectorizer()
     preproc = cv.build_analyzer()
+
+    countvecs = cv.fit_transform(X_train)
     vocab = cv.vocabulary_
 
-    maxWords = max_words_in_a_tweet(dataset['Tweet text'].copy())
+    maxWords = max_words_in_a_tweet(dataset['tweet'].copy())
 
     # Create a fill the embedding matrix of our vocabulary
     embedding_matrix = np.zeros((len(vocab) + 1, embedding_dim))
@@ -163,7 +167,7 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
     batch_size = 6
     epochs = 30
     opt = keras.optimizers.Adam(0.0001)
-    #                      BUILDING THE MODEL
+    #BUILDING THE MODEL
 
     model = Sequential()
     # model.add(Embedding(vocab_length, 20, input_length=length_long_sentence))
@@ -206,7 +210,7 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
     return model.predict(embedding_input_test)
 
 def visualizeMLP():
-    from ann_visualizer.visualize import ann_viz
+    #from ann_visualizer.visualize import ann_viz
     from keras.models import model_from_json
     import numpy  # fix random seed for reproducibility
     numpy.random.seed(7)  # load json and create model
@@ -215,10 +219,10 @@ def visualizeMLP():
     json_file.close()
     model = model_from_json(loaded_model_json)  # load weights into new model
     model.load_weights("modelMLP.h5")
-    ann_viz(model, title="Artificial Neural network - Model Visualization")
+    #ann_viz(model, title="Artificial Neural network - Model Visualization")
 
 def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
-    class_weight = {0: 2.2, 1: 4.75, 2: 1.55, 3: 1}
+    class_weight = {0: 2.3, 1: 4.6, 2: 1.7, 3: 1}
     # class_weight = {0:1.5, 1:5, 2:1}
     trainable = True
 
@@ -234,10 +238,54 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_
 
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
+    print(embedding_input_train.shape)
+    print(y_train.shape)
     model.fit(embedding_input_train, y_train, epochs=10, batch_size=250, class_weight=class_weight)
+    '''
+    feature_extractor = keras.Model(
+        inputs=model.inputs,
+        outputs=model.get_layer(index=-1).output)
+
+    features_train = feature_extractor(embedding_input_train)
+    features_test = feature_extractor(embedding_input_test)
+    '''
 
     y_pred = model.predict(embedding_input_test)
     return y_pred
+'''
+    features_train = features_train.numpy()
+    features_test = features_test.numpy()
+    from sklearn.preprocessing import MinMaxScaler
+
+    scaler = MinMaxScaler()
+    pos_neg_train = scaler.fit_transform(pos_neg_train)
+    pos_neg_test = scaler.fit_transform(pos_neg_test)
+
+    X_train_svm = np.append(features_train, pos_neg_train, axis=1)
+    X_test_svm = np.append(features_test, pos_neg_test, axis=1)
+
+    X_train_svm = np.reshape(X_train_svm, (X_train_svm.shape[0], 1, X_train_svm.shape[1]))
+    X_test_svm = np.reshape(X_test_svm, (X_test_svm.shape[0], 1, X_test_svm.shape[1]))
+
+    modelFinal = Sequential()
+    modelFinal.add((LSTM(20, input_shape=(1, X_train_svm.shape[2]), dropout=0.5)))
+    modelFinal.add(Dense(4, activation='softmax'))
+
+    modelFinal.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+    modelFinal.fit(X_train_svm, y_train, epochs=30, batch_size=50, class_weight=class_weight)
+
+    y_pred_final = modelFinal.predict(X_test_svm)
+
+    y_pred_final = enc.inverse_transform(y_pred_final)
+    y_test = enc.inverse_transform(y_test)
+
+    print(confusion_matrix(y_test, y_pred_final))
+    print(metrics.accuracy_score(y_test, y_pred_final))
+    print(metrics.f1_score(y_test, y_pred_final, average='macro'))
+    print(metrics.precision_score(y_test, y_pred_final, average='macro'))
+    print(metrics.recall_score(y_test, y_pred_final, average='macro'))
+'''
 
 if __name__ == '__main__':
     vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train, y_test, enc = preproseccingPhase()
