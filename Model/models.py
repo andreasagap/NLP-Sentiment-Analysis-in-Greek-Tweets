@@ -252,40 +252,6 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_
 
     y_pred = model.predict(embedding_input_test)
     return y_pred
-'''
-    features_train = features_train.numpy()
-    features_test = features_test.numpy()
-    from sklearn.preprocessing import MinMaxScaler
-
-    scaler = MinMaxScaler()
-    pos_neg_train = scaler.fit_transform(pos_neg_train)
-    pos_neg_test = scaler.fit_transform(pos_neg_test)
-
-    X_train_svm = np.append(features_train, pos_neg_train, axis=1)
-    X_test_svm = np.append(features_test, pos_neg_test, axis=1)
-
-    X_train_svm = np.reshape(X_train_svm, (X_train_svm.shape[0], 1, X_train_svm.shape[1]))
-    X_test_svm = np.reshape(X_test_svm, (X_test_svm.shape[0], 1, X_test_svm.shape[1]))
-
-    modelFinal = Sequential()
-    modelFinal.add((LSTM(20, input_shape=(1, X_train_svm.shape[2]), dropout=0.5)))
-    modelFinal.add(Dense(4, activation='softmax'))
-
-    modelFinal.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-    modelFinal.fit(X_train_svm, y_train, epochs=30, batch_size=50, class_weight=class_weight)
-
-    y_pred_final = modelFinal.predict(X_test_svm)
-
-    y_pred_final = enc.inverse_transform(y_pred_final)
-    y_test = enc.inverse_transform(y_test)
-
-    print(confusion_matrix(y_test, y_pred_final))
-    print(metrics.accuracy_score(y_test, y_pred_final))
-    print(metrics.f1_score(y_test, y_pred_final, average='macro'))
-    print(metrics.precision_score(y_test, y_pred_final, average='macro'))
-    print(metrics.recall_score(y_test, y_pred_final, average='macro'))
-'''
 
 if __name__ == '__main__':
     vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train, y_test, enc = preproseccingPhase()
