@@ -1,6 +1,5 @@
 from functools import partial
 
-import nltk
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,6 +20,45 @@ from keras.preprocessing.sequence import pad_sequences
 import fasttext as f
 from tensorflow.python.keras.layers import Flatten
 
+def preproseccingPhase():
+    dataset = pd.read_csv('tweets_preprocessed_drop_hashtag_content.csv')
+
+    # dataset.loc[dataset['Sentiment'] == 4, 'Sentiment'] = 3 #for 3-class representation
+
+    dataset['Sentiment'].astype('category')
+
+    # One hot encoding
+    enc = OneHotEncoder(handle_unknown='ignore')
+    enc_df = pd.DataFrame(enc.fit_transform(dataset[['Sentiment']]).toarray())
+    dataset = dataset.join(enc_df)
+    dataset = dataset.drop(['Sentiment'], axis=1)
+
+    # Load fasttext embeddings
+    model = f.load_model('wiki.el.bin')
+    embedding_dim = 300
+
+    # Implement BOG with CountVectorizer and TfidfVectorizer
+    cv = CountVectorizer()
+
+    X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet text'], dataset.iloc[:, 1:].values,
+                                                        test_size=0.1, random_state=42, shuffle=True)
+
+    preproc = cv.build_analyzer()
+    vocab = cv.vocabulary_
+
+    maxWords = max_words_in_a_tweet(dataset['Tweet text'].copy())
+
+    # Create a fill the embedding matrix of our vocabulary
+    embedding_matrix = np.zeros((len(vocab) + 1, embedding_dim))
+
+    for word, i in vocab.items():
+        if word in model:
+            embedding_matrix[i] = model[word]
+
+    embedding_input_train = tweets_to_indices(X_train, preproc, vocab, maxWords)
+    embedding_input_test = tweets_to_indices(X_test, preproc, vocab, maxWords)
+
+    return vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train, y_test, enc
 
 def max_words_in_a_tweet(tweets):
     max = 0
@@ -45,16 +83,61 @@ def tweets_to_indices(tweets, preproc, vocab, maxWords):
     return pad_sequences(new_tweets, maxlen=maxWords)
 
 
-def statisticsModel(y_pred, y_test):
-    y_pred = enc.inverse_transform(y_pred)
+def statisticsModel(y_pred_lstm, y_pred_mlp, y_test, enc):
+    y_pred_lstm = enc.inverse_transform(y_pred_lstm)
+    y_pred_mlp = enc.inverse_transform(y_pred_mlp)
     y_test = enc.inverse_transform(y_test)
-    print('Accuracy model: ', metrics.accuracy_score(y_test, y_pred))
-    print('F1 score model: ', metrics.f1_score(y_test, y_pred, average='macro'))
+    accuracy_lstm = metrics.accuracy_score(y_test, y_pred_lstm)
+    f1_score_lstm = metrics.f1_score(y_test, y_pred_lstm, average='macro')
+    precision_lstm = precision_score(y_test, y_pred_lstm, average='macro')
+    recall_lstm = recall_score(y_test, y_pred_lstm, average='macro')
 
-    print("Precision: " + str(precision_score(y_test, y_pred, average='macro')))
-    print("Recall " + str(recall_score(y_test, y_pred, average='macro')))
-    print(confusion_matrix(y_test, y_pred))
-    print(classification_report(y_test, y_pred))
+    accuracy_mlp = metrics.accuracy_score(y_test, y_pred_mlp)
+    f1_score_mlp = metrics.f1_score(y_test, y_pred_mlp, average='macro')
+    precision_mlp = precision_score(y_test, y_pred_mlp, average='macro')
+    recall_mlp = recall_score(y_test, y_pred_mlp, average='macro')
+
+    print(confusion_matrix(y_test, y_pred_lstm))
+    print(confusion_matrix(y_test, y_pred_mlp))
+
+    labels = ['Accuracy', 'Precision', 'Recall', 'F1 Score']
+    lstmScores = [round(accuracy_lstm, 2), round(precision_lstm, 2), round(recall_lstm, 2),
+                           round(f1_score_lstm, 2)]
+    mlpScores = [round(accuracy_mlp, 2), round(precision_mlp, 2), round(recall_mlp, 2), round(f1_score_mlp, 2)]
+
+    x = np.arange(len(labels))  # the label locations
+    width = 0.35  # the width of the bars
+
+    fig, ax = plt.subplots()
+
+    rects1 = ax.bar(x - width / 2, lstmScores, width, label='LSTM')
+    rects2 = ax.bar(x + width / 2, mlpScores, width, label='MLP')
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel('Percentage')
+    ax.set_title('Metrics by model')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.legend()
+
+    def autolabel(rects):
+        """Attach a text label above each bar in rects, displaying its height."""
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate('{}'.format(height),
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    fig.tight_layout()
+
+    plt.show()
+
+    print(classification_report(y_test, y_pred_lstm))
 
 
 def check_overfitting(history):
@@ -75,7 +158,7 @@ def check_overfitting(history):
     plt.show()
 
 
-def MLP(vocab, embedding_dim, embedding_matrix, maxWords):
+def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
     batch_size = 6
     epochs = 30
     opt = keras.optimizers.Adam(0.0001)
@@ -117,9 +200,10 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords):
     return model.predict(embedding_input_test)
 
 
-def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords):
+def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
+    class_weight = {0: 2.2, 1: 4.75, 2: 1.55, 3: 1}
+    # class_weight = {0:1.5, 1:5, 2:1}
     trainable = True
-    opt = keras.optimizers.RMSprop()
 
     model = Sequential()
     model.add(Embedding(input_dim=len(vocab) + 1,
@@ -127,98 +211,19 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords):
                         weights=[embedding_matrix],
                         input_length=maxWords,
                         trainable=trainable))
-    model.add(Bidirectional(LSTM(10, dropout=0.3)))
+    model.add(Bidirectional(LSTM(10, dropout=0.4, return_sequences=True)))
+    model.add((LSTM(20, dropout=0.5)))
     model.add(Dense(4, activation='softmax'))
 
-    model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
-    model.fit(embedding_input_train, y_train, epochs=10, batch_size=250)
+    model.fit(embedding_input_train, y_train, epochs=10, batch_size=250, class_weight=class_weight)
 
-    return model.predict(embedding_input_test)
+    y_pred = model.predict(embedding_input_test)
+    return y_pred
 
-
-# usecols=[1,2],names=["Tweet","Sentiment"]
-dataset = pd.read_csv('tweets_preprocessed.csv', usecols=[0, 1], names=["tweet", "label"], header=None)
-dataset = dataset[dataset["label"].notna()]
-dataset = dataset[dataset["label"] != 10.0]
-neutral = dataset[dataset["label"] == 1]
-positive = dataset[dataset["label"] == 2]
-angry1 = dataset[dataset["label"] == 3]
-angry2 = dataset[dataset["label"] == 4]
-print('=' * 60)
-txt = neutral.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
-words = nltk.tokenize.word_tokenize(txt)
-word_dist = nltk.FreqDist(words)
-rslt = pd.DataFrame(word_dist.most_common(10),
-                    columns=['Word', 'Frequency'])
-print(rslt)
-print('=' * 60)
-
-
-print('=' * 60)
-txt = positive.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
-words = nltk.tokenize.word_tokenize(txt)
-word_dist = nltk.FreqDist(words)
-rslt = pd.DataFrame(word_dist.most_common(10),
-                    columns=['Word', 'Frequency'])
-print(rslt)
-print('=' * 60)
-
-print('=' * 60)
-txt = angry1.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
-words = nltk.tokenize.word_tokenize(txt)
-word_dist = nltk.FreqDist(words)
-rslt = pd.DataFrame(word_dist.most_common(10),
-                    columns=['Word', 'Frequency'])
-print(rslt)
-print('=' * 60)
-print('=' * 60)
-txt = angry2.tweet.str.lower().str.replace(r'\|', ' ').str.cat(sep=' ')
-words = nltk.tokenize.word_tokenize(txt)
-word_dist = nltk.FreqDist(words)
-rslt = pd.DataFrame(word_dist.most_common(10),
-                    columns=['Word', 'Frequency'])
-print(rslt)
-print('=' * 60)
-dataset['label'].astype('category')
-enc = OneHotEncoder()
-enc_df = pd.DataFrame(enc.fit_transform(dataset[['label']]).toarray())
-dataset = dataset.reset_index(drop=True)
-dataset = dataset.join(enc_df)
-dataset = dataset.drop(['label'], axis=1)
-# dataset = dataset[dataset.iloc[:, 1].notna()]
-model = f.load_model('/Users/Andreas/Desktop/NLP-AUTH/wiki.el.bin')
-embedding_dim = 300
-
-# Implement BOG with CountVectorizer and TfidfVectorizer
-cv = CountVectorizer(ngram_range=(1, 1))
-tfidf = TfidfVectorizer(smooth_idf=True)
-X_train, X_test, y_train, y_test = train_test_split(dataset['tweet'], dataset.iloc[:, 1:].values, test_size=0.25,
-                                                    random_state=0)
-
-# text_counts = cv.fit_transform(dataset['Tweet text']).toarray()
-# text_counts2 = tfidf.fit_transform(dataset['Tweet text']).toarray()
-
-preproc = cv.build_analyzer()
-countvecs = cv.fit_transform(X_train)
-vocab = cv.vocabulary_
-features = cv.get_feature_names()
-
-maxWords = max_words_in_a_tweet(dataset['tweet'].copy())
-
-# Create a fill the embedding matrix of our vocabulary
-embedding_matrix = np.zeros((len(vocab) + 1, embedding_dim))
-
-for word, i in vocab.items():
-    if word in model:
-        embedding_matrix[i] = model[word]
-
-embedding_input_train = tweets_to_indices(X_train, preproc, vocab, maxWords)
-embedding_input_test = tweets_to_indices(X_test, preproc, vocab, maxWords)
-
-feature_shape = embedding_dim
-
-# MODEL declaration
-
-# statisticsModel(LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords))
-statisticsModel(MLP(vocab, embedding_dim, embedding_matrix, maxWords), y_test)
+if __name__ == '__main__':
+    vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train, y_test, enc = preproseccingPhase()
+    y_pred_lstm = LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train)
+    y_pred_mlp = MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train)
+    statisticsModel(y_pred_lstm, y_pred_mlp, y_test, enc)
