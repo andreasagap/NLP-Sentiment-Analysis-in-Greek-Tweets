@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from sklearn import model_selection, feature_extraction, metrics
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.utils import class_weight
@@ -51,9 +51,36 @@ def tweets_to_indices(tweets,preproc,vocab,maxWords):
         new_tweets.append(new)
     return pad_sequences(new_tweets, maxlen=maxWords)
 
+dataset = pd.read_csv('tweets_preprocessed_drop_hashtag_content.csv')
 
+count1=0
+count2=0
+count3=0
+count4=0
+x = dataset['Sentiment'].values
+for i in range(len(x)):
+    if x[i] == 1:
+        count1 += 1
+    elif x[i] == 2:
+        count2 += 1
+    elif x[i] == 3:
+        count3 += 1
+    else:
+        count4 +=1
 
-dataset = pd.read_csv('tweets_preprocessed.csv')
+classes = ('Neutral', 'Optimistic', 'Pessimistic1', 'Pessimistic2')
+y_pos = np.arange(len(classes))
+counts = [count1,count2,count3,count4]
+
+plt.bar(y_pos, counts, align='center')
+plt.xticks(y_pos, classes)
+plt.ylabel('Number of Instances')
+plt.xlabel('Classes')
+plt.title('Class distribution in dataset')
+plt.show()
+
+#dataset.loc[dataset['Sentiment'] == 4, 'Sentiment'] = 3 #for 3-class representation
+
 dataset['Sentiment'].astype('category')
 
 enc = OneHotEncoder(handle_unknown='ignore')
@@ -68,7 +95,7 @@ embedding_dim = 300
 cv = CountVectorizer(ngram_range=(1,1))
 tfidf = TfidfVectorizer(smooth_idf=True)
 
-X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet text'], dataset.iloc[:, 1:].values, test_size=0.25, random_state=42, shuffle=True)
+X_train, X_test, y_train, y_test = train_test_split(dataset['Tweet text'], dataset.iloc[:, 1:].values, test_size=0.1, random_state=42, shuffle=True)
 
 #text_counts = cv.fit_transform(dataset['Tweet text']).toarray()
 #text_counts2 = tfidf.fit_transform(dataset['Tweet text']).toarray()
@@ -93,10 +120,9 @@ embedding_input_test = tweets_to_indices(X_test, preproc, vocab, maxWords)
 feature_shape = embedding_dim
 
 # MODEL declaration
-class_weight = {0: 1, 1: 4, 2:1, 3:1}
-
+class_weight = {0: 2.2, 1: 4.75, 2: 1.55, 3: 1}
+#class_weight = {0:1.5, 1:5, 2:1}
 trainable = True
-opt = keras.optimizers.RMSprop()
 
 model = Sequential()
 model.add(Embedding(input_dim=len(vocab) + 1,
@@ -105,21 +131,20 @@ model.add(Embedding(input_dim=len(vocab) + 1,
                     input_length=maxWords,
                     trainable=trainable))
 model.add(Bidirectional(LSTM(10, dropout=0.4, return_sequences=True)))
-model.add((LSTM(20, dropout=0.7)))
+model.add((LSTM(20, dropout=0.5)))
 model.add(Dense(4, activation='softmax'))
 
-model.compile(loss='categorical_crossentropy', optimizer=opt, metrics=['accuracy'])
+model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 model.fit(embedding_input_train, y_train, epochs=10, batch_size=250, class_weight=class_weight)
 
 y_pred = model.predict(embedding_input_test)
 
 y_pred = enc.inverse_transform(y_pred)
+y_test = enc.inverse_transform(y_test)
+confusion_matrix = metrics.confusion_matrix(y_true=y_test, y_pred=y_pred)
 
 print('LSTM Accuracy model: ', metrics.accuracy_score(y_test, y_pred))
-print('LSTM F1 score model: ', metrics.f1_score(y_test, y_pred, average='micro'))
-print('LSTM Recall model: ', metrics.recall_score(y_test, y_pred, average='micro'))
-print('LSTM Precision score model: ', metrics.precision_score(y_test, y_pred, average='micro'))
-
-for i in range(len(y_train))
-len(y_train[ι])
+print('LSTM F1 score model: ', metrics.f1_score(y_test, y_pred, average='macro'))
+print('LSTM Recall model: ', metrics.recall_score(y_test, y_pred, average='macro'))
+print('LSTM Precision score model: ', metrics.precision_score(y_test, y_pred, average='macro'))
