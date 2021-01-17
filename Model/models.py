@@ -201,7 +201,7 @@ def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_
                         weights=[embedding_matrix],
                         input_length=maxWords,
                         trainable=trainable))
-    model.add((LSTM(20, dropout=0.5)))
+    model.add((LSTM(20, dropout=0.2)))
     model.add(Dense(numClasses, activation='softmax'))
 
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
