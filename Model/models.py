@@ -1,5 +1,6 @@
 from functools import partial
 
+import nltk
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +17,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout, Bidirectional
 from tensorflow.keras.layers import Embedding
 from keras.preprocessing.sequence import pad_sequences
-
+from keras.utils.vis_utils import plot_model
 import fasttext as f
 from tensorflow.python.keras.layers import Flatten
 
@@ -197,8 +198,24 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
                         validation_data=(embedding_input_test, y_test))
 
     # check_overfitting(history)
+    model_json = model.to_json()
+    with open("modelMLP.json", "w") as json_file:
+        json_file.write(model_json)  # serialize weights to HDF5
+    model.save_weights("modelMLP.h5")
+    visualizeMLP()
     return model.predict(embedding_input_test)
 
+def visualizeMLP():
+    from ann_visualizer.visualize import ann_viz
+    from keras.models import model_from_json
+    import numpy  # fix random seed for reproducibility
+    numpy.random.seed(7)  # load json and create model
+    json_file = open('modelMLP.json', 'r')
+    loaded_model_json = json_file.read()
+    json_file.close()
+    model = model_from_json(loaded_model_json)  # load weights into new model
+    model.load_weights("modelMLP.h5")
+    ann_viz(model, title="Artificial Neural network - Model Visualization")
 
 def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
     class_weight = {0: 2.2, 1: 4.75, 2: 1.55, 3: 1}
