@@ -222,7 +222,7 @@ def visualizeMLP():
     #ann_viz(model, title="Artificial Neural network - Model Visualization")
 
 def LSTMModel(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train, embedding_input_test, y_train):
-    class_weight = {0: 2.3, 1: 4.6, 2: 1.7, 3: 1}
+    class_weight = {0: 2.3, 1: 2, 2: 1, 3: 1}
     # class_weight = {0:1.5, 1:5, 2:1}
     trainable = True
 
