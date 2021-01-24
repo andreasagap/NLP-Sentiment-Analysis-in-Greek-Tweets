@@ -93,6 +93,7 @@ def statisticsModel(y_pred_lstm, y_pred_mlp, y_test, enc):
     y_pred_lstm = enc.inverse_transform(y_pred_lstm)
     y_pred_mlp = enc.inverse_transform(y_pred_mlp)
     y_test = enc.inverse_transform(y_test)
+    
     accuracy_lstm = metrics.accuracy_score(y_test, y_pred_lstm)
     f1_score_lstm = metrics.f1_score(y_test, y_pred_lstm, average='macro')
     precision_lstm = precision_score(y_test, y_pred_lstm, average='macro')
@@ -161,11 +162,11 @@ def MLP(vocab, embedding_dim, embedding_matrix, maxWords, embedding_input_train,
                         input_length=maxWords,
                         trainable=True))
     model.add(Flatten())
-    model.add(Dense(32, activation='tanh'))
+    model.add(Dense(32, activation='relu'))
     model.add(Dropout(0.4))
     model.add(Dense(16, activation='relu'))
     model.add(Dropout(0.1))
-    model.add(Dense(8, activation='tanh'))
+    model.add(Dense(8, activation='relu'))
     # model.add(Dense(24, activation='relu'))
     # model.add(Dropout(0.6))
     model.add(Flatten())
