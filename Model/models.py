@@ -20,11 +20,13 @@ from keras.utils.vis_utils import plot_model
 import fasttext as f
 from tensorflow.python.keras.layers import Flatten
 
+numClasses = 3
+
 def preproseccingPhase():
     dataset = pd.read_csv('Datasets/tweets_with_hashtag_content.csv')
 
     dataset.loc[dataset['label'] == 4, 'label'] = 3 #for 3-class representation
-    numClasses = 3
+ 
     pos_neg_dataset = dataset[['#pos', '#neg']]
     dataset = dataset.drop(['#pos', '#neg'], axis=1)
 
@@ -37,7 +39,7 @@ def preproseccingPhase():
     dataset = dataset.drop(['label'], axis=1)
 
     # Load fasttext embeddings
-    model = f.load_model('Model/wiki.el.bin')
+    model = f.load_model('Model/wiki.el.bin') #Download wiki.el.bin from fasttext website
     embedding_dim = 300
 
     X_train, X_test, y_train, y_test = train_test_split(dataset['tweet'], dataset.iloc[:, 1:].values,
