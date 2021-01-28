@@ -47,7 +47,7 @@ def preproseccingPhase():
     #pos_neg_train = X_train[['#pos', '#neg']]
     #pos_neg_test = X_test[['#pos', '#neg']]
 
-    # Implement BOG with CountVectorizer
+    # Implement CountVectorizer
     cv = CountVectorizer()
     preproc = cv.build_analyzer()
 
